@@ -20,6 +20,7 @@ print("this is where my packages are", sys.path)
 
 
 app = Flask(__name__)
+CORS(app)
 
 database_url = 'postgresql+psycopg2://postgres:liveurlife@localhost:5432/postgres'
 
@@ -34,7 +35,7 @@ db = SQLAlchemy(app)
 ma = Marshmallow(app)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 admin = Admin(app)
-CORS(app)
+
 
 
 @app.shell_context_processor
@@ -76,7 +77,7 @@ class Question(Base):
     answers = relationship('Answer',backref='question')
 
     def __str__(self) -> str:
-        return self.name
+        return self.qtn
 
 class Answer(Base):
     __tablename__ = 'answer'
@@ -148,7 +149,8 @@ admin.add_view(ModelView(Question, session))
 admin.add_view(ModelView(Answer, session))
 
 def check_user_login(username, password):
-    user = Users.query.filter_by(username=username).filter_by(password=password).first()
+    # user = Users.query.filter_by(username=username).filter_by(password=password).first()
+    user = session.query(Users).filter_by(username=username).filter_by(password=password).first()
 
     return user
 
@@ -162,7 +164,8 @@ def check_if_admin(username, password):
 def post_question():
     username = request.headers['username']
     password = request.headers['password']
-    user = check_user_login(username, password)
+    user = session.query(Users).filter_by(username=username).filter_by(password=password).first()
+    # user = check_user_login(username, password)
     if not user and user.is_admin == True:
         return abort(403)
 
@@ -189,7 +192,8 @@ def post_question():
         new_f = dict()
         new_f['qtn'] = new_attempt.qtn
         new_f['sub_id'] = new_attempt.subject_id
-        return jsonify(new_f)
+        resp = jsonify(new_f)
+        return resp
 
 
 @app.route('/qtn')
@@ -205,9 +209,11 @@ def get_all_qtn():
         qtn_all['subject_id'] = ja.subject_id
         ansa = []
         for joe in ja.answers:
+            print("this are answers", joe.user.username)
             anss = dict()
             anss['id'] = joe.id
             anss['ans'] = joe.ans
+            anss['user'] = joe.user.username
             anss['q_id'] = joe.question_id
             ansa.append(anss)
         qtn_all['answer'] = ansa
@@ -217,7 +223,7 @@ def get_all_qtn():
 @app.route('/qtn/<int:id>')
 def get_question(id):
     # qtn = Question.query.filter_by(id=id).first()
-    qtn = session.query('Question').filter_by(id=id).first()
+    qtn = session.query(Question).filter_by(id=id).first()
     if qtn:
         result = dict()
         result['id'] = qtn.id
@@ -347,6 +353,7 @@ def post_answer():
     if not question:
         return jsonify(abort(204))
     question_ans = question.answers
+    print("this are questions: ", question_ans)
     for i in question_ans:
         if i.user.username == username:
             i.ans = request.json['ans']

@@ -1,0 +1,9 @@
+version '3'
+services:
+  flask_app:
+  build: ./flask100
+  volumes:
+    ./flask100:usr/src/app
+  ports:-5001:80
+
+  
